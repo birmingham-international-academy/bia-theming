@@ -26,9 +26,9 @@ $(function () {
 	}
 
 
-	// ------------------------------------------------------------
-	// Core Functions
-	// ------------------------------------------------------------
+	// =================================================================================================================================
+	// Handler Functions
+	// =================================================================================================================================
 
   function initializeHandler() {
     // Retrieve modules
@@ -194,51 +194,13 @@ $(function () {
     cleanGradesPage();
   }
 
-  function cleanGradesPage($page) {
-    if (!$page) {
-      $page = $(document.body);
-    }
-
-    $page.find('#print-grades-container').hide();
-    $page.find('#GradeSummarySelectMenuGroup').hide();
-
-    $page.find('#grades_summary [id*="submission_"]').each(function () {
-      $(this).find('.assignment_score .grade span').remove();
-      var grade = $(this).find('.assignment_score .grade').text().trim();
-      var possiblePoints = $(this).find('.points_possible').text().trim();
-
-      if (grade === '-') {
-        $(this).hide();
-      } else if (grade === '0' && possiblePoints === '0') {
-        $(this).find('.points_possible').text('-');
-        $(this).find('.assignment_score .grade').text('-');
-      }
-    });
-  }
-
   function certificateHandler() {
     var $contentWrapper = $('#content-wrapper');
 
 		// Hide page title
     $contentWrapper.find('.page-title').hide();
 
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js', function () {
-      loadScript('https://unpkg.com/jspdf@latest/dist/jspdf.min.js', _certificateHandler);
-    });
-
-    // Load JS to PDF library
-    /*var jsToPdfScript = document.createElement('script');
-    jsToPdfScript.onload = _certificateHandler;
-    jsToPdfScript.src = 'https://unpkg.com/jspdf@latest/dist/jspdf.min.js';
-    document.body.appendChild(jsToPdfScript);*/
-
-    // Append download button
-    /*var $div = $('<div class="bia"></div>');
-    var $downloadButton = $('<a href="javascript:;" ' + buttonAttributes + '>Download</a>');
-    $downloadButton.addClass('icon-download mt-4');
-    $div.append($downloadButton);
-
-    $contentWrapper.find('#content .user_content').append($div);*/
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js', _certificateHandler);
 
     function _certificateHandler() {
       var assessmentType = storageGet('assessment_type');
@@ -247,60 +209,56 @@ $(function () {
         $.get(gradesUrl, function (data) {
           var $gradesPage = $(data);
           cleanGradesPage($gradesPage);
+          var $gradesTable = createGradesTable($gradesPage);
 
           var $pdfContent = $('<div id="pdf-content"></div>');
-          var $pdfContentInner = $('<div></div>');
+          var $pdfContentInner = $('<div style="width: 100%"></div>');
           $pdfContent.css({
             position: 'fixed',
             right: '-100em'
           });
-          $pdfContentInner.append('<h1 style="text-align: center">Certificate of completion and summary of scores</h1>');
+          $pdfContentInner.append('<h1>Certificate of completion and summary of scores</h1>');
           $pdfContentInner.append('<p>This certificate is to confirm that ' + ENV.current_user.display_name + ' has successfully completed the core content of the "Assess your Academic English!" course.</p>');
-          $pdfContentInner.append($gradesPage);
+          $pdfContentInner.append($gradesTable);
+          $pdfContentInner.append('<p style="font-size: 10px; margin-top: 16px">Birmingham International Academy | University Of Birmingham</p>');
           $pdfContent.append($pdfContentInner);
           $(document.body).append($pdfContent);
 
+          var source = $('#pdf-content > div').get(0);
+          var margins = {
+            top: 80,
+            bottom: 60,
+            left: 40,
+            width: 522
+          };
+
           var pdf = new jsPDF('p', 'pt', 'letter');
-          var canvas = pdf.canvas;
-          pdf.canvas.height = 72 * 11;
-          pdf.canvas.width = 72 * 8.5;
 
-          html2canvas($('#pdf-content > div').get(0), {
-              canvas: canvas,
-              onrendered: function (canvas) {
-                var iframe = document.createElement('iframe');
-                iframe.setAttribute('style','width:100%');
-                $contentWrapper.find('#content .user_content').append(iframe);
-                iframe.src = pdf.output('datauristring');
-              }
-          });
+          pdf.fromHTML(
+            source,
+            margins.left,
+            margins.top,
+            {
+              width: margins.width
+            },
+            function (dispose) {
+              var iframe = document.createElement('iframe');
+              iframe.setAttribute('style', 'width:100%; height: 600px');
+              $contentWrapper.find('#content .user_content').append(iframe);
+              iframe.src = pdf.output('datauristring');
+            },
+            margins
+          );
         });
-
-        /*$downloadButton.on('click', function (event) {
-          event.preventDefault();
-
-          $.get(gradesUrl, function (data) {
-            var $gradesPage = $(data);
-            $gradesPage = cleanGradesPage($gradesPage);
-
-            var $pdfContent = $('<div></div>');
-            $pdfContent.append('<h1 style="text-align: center">Certificate of completion and summary of scores</h1>');
-            $pdfContent.append('<p>This certificate is to confirm that ' + ENV.current_user.display_name + ' has successfully completed the core content of the "Assess your Academic English!" course.</p>');
-            $pdfContent.append($gradesPage);
-
-            var doc = new jsPDF();
-
-            doc.fromHtml($pdfContent.get(0), 15, 15, {
-              'width': 170
-            });
-            doc.save('certificate-of-completion.pdf');
-          });
-        });*/
       } else {
 
       }
     }
   }
+
+  // =================================================================================================================================
+	// Utility Functions
+	// =================================================================================================================================
 
 	function setLastVisitedModuleItem() {
 		var moduleItemId = getQueryStringParam('module_item_id');
@@ -409,9 +367,51 @@ $(function () {
     return menuItem
   }
 
-	// ------------------------------------------------------------
-	// Utility Functions
-	// ------------------------------------------------------------
+  function cleanGradesPage($page) {
+    if (!$page) {
+      $page = $(document.body);
+    }
+
+    $page.find('#print-grades-container').hide();
+    $page.find('#GradeSummarySelectMenuGroup').hide();
+
+    $page.find('#grades_summary [id*="submission_"]').each(function () {
+      $(this).find('.assignment_score .grade span').remove();
+      var grade = $(this).find('.assignment_score .grade').first().text().trim();
+      var possiblePoints = $(this).find('.points_possible').first().text().trim();
+
+      if (grade === '-') {
+        $(this).remove();
+      } else if (grade === '0' && possiblePoints === '0') {
+        $(this).find('.points_possible').text('-');
+        $(this).find('.assignment_score .grade').text('-');
+      }
+    });
+  }
+
+  function createGradesTable($gradesPage) {
+    var $inputGradesTable = $gradesPage.find('#grades_summary');
+    var $outGradesTable = $('<table style="font-size: 11px">');
+    var $tbody = $('<tbody>');
+
+    $outGradesTable.append('<thead><tr><td>Name</td><td>Score</td><td>Out of</td></tr></thead>');
+
+    $inputGradesTable.find('[id*="submission_"]').each(function () {
+      var title = $(this).find('.title > a').text().trim();
+      var grade = $(this).find('.assignment_score .grade').first().text().trim();
+      var possiblePoints = $(this).find('.points_possible').first().text().trim();
+
+      $tbody.append('<tr><td width="60%">' + title + '</td><td width="20%">' + grade + '</td><td width="20%">' + possiblePoints + '</td></tr>');
+    });
+
+    $outGradesTable.append($tbody);
+
+    return $outGradesTable;
+  }
+
+	// =================================================================================================================================
+	// Helper Functions
+	// =================================================================================================================================
 
 	function getQueryStringParam(sParam) {
 		var sPageURL = window.location.search.substring(1);
