@@ -5,8 +5,8 @@ var biaUtils = {
 };
 
 $(function () {
-	var courses = ['30467', '30873', '5947'];
-	var course_id = (ENV.COURSE_ID || location.pathname.match('\/courses\/(.*?)\/')[1]) + '';
+	var courses = ['30467', '30873', '5947', '4790'];
+	var course_id = getCourseId();
 	var courseUrlRegex = '^\/courses\/(?:' + courses.join('|') + ')';
   var baseCourseUrl = 'https://canvas.bham.ac.uk/courses/' + course_id;
   var baseApiCourseUrl = 'https://canvas.bham.ac.uk/api/v1/courses/' + course_id;
@@ -483,5 +483,17 @@ $(function () {
     script.src = url;
     document.getElementsByTagName('head')[0].appendChild(script);
     // document.body.appendChild(script);
+  }
+
+  function getCourseId() {
+    if (ENV.COURSE_ID) {
+      return ENV.COURSE_ID + '';
+    }
+
+    if (ENV.COURSE) {
+      return ENV.COURSE.id + '';
+    }
+
+    return location.pathname.match('\/courses\/(.*?)\/')[1];
   }
 });
